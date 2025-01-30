@@ -1,0 +1,189 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spark
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-master
+  namespace: spark
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-master
+  template:
+    metadata:
+      labels:
+        app: spark-master
+    spec:
+      containers:
+        - name: spark-master
+          image: spark-crack
+          command: ["/bin/bash", "/opt/spark/entrypoint.sh", "master"]
+          imagePullPolicy: IfNotPresent
+          env:
+          - name: SPARK_WORKLOAD
+            value: "master"
+          - name: SPARK_MASTER_HOST
+            value: "spark-master" # Explicitly set the master hostname
+          - name: SPARK_MASTER
+            value: "spark://spark-master:7077"
+          - name: SPARK_MASTER_PORT
+            value: "7077" # Ensure this is an integer, no tcp:// prefix
+          - name: SPARK_MASTER_WEBUI_PORT
+            value: "8080" # Web UI port
+          - name: SPARK_NO_DAEMONIZE
+            value: "true" # Run Spark Master in the foreground
+          ports:
+            - containerPort: 8080
+            - containerPort: 7077
+          volumeMounts:
+            - name: spark-scripts
+              mountPath: /opt/spark/scripts
+            - name: spark-data
+              mountPath: /opt/spark/data
+            - name: spark-logs
+              mountPath: /opt/spark/spark-events
+            - name: spark-warehouse
+              mountPath: /opt/spark/warehouse
+      volumes:
+        - name: spark-scripts
+          hostPath:
+            path: /home/iory2k/workspace/iceberg-trino-k8s-demo/scripts
+        - name: spark-data
+          hostPath:
+            path: /home/iory2k/workspace/iceberg-trino-k8s-demo/data
+        - name: spark-logs
+          emptyDir: {}
+        - name: spark-warehouse
+          hostPath:
+            path: /home/iory2k/workspace/iceberg-trino-k8s-demo/warehouse
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-master
+  namespace: spark
+spec:
+  selector:
+    app: spark-master
+  ports:
+    - name: web-ui
+      port: 8080
+      targetPort: 8080
+    - name: spark-cluster
+      port: 7077
+      targetPort: 7077
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-worker
+  namespace: spark
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-worker
+  template:
+    metadata:
+      labels:
+        app: spark-worker
+    spec:
+      containers:
+        - name: spark-worker
+          image: spark-crack
+          command: ["/bin/bash", "/opt/spark/entrypoint.sh", "worker"]
+          imagePullPolicy: IfNotPresent   
+          env:
+          - name: SPARK_WORKLOAD
+            value: "worker"     
+          - name: SPARK_NO_DAEMONIZE
+            value: "true"  
+          volumeMounts:
+            - name: spark-scripts
+              mountPath: /opt/spark/scripts
+            - name: spark-data
+              mountPath: /opt/spark/data
+            - name: spark-logs
+              mountPath: /opt/spark/spark-events
+            - name: spark-warehouse
+              mountPath: /opt/spark/warehouse
+      volumes:
+        - name: spark-scripts
+          hostPath:
+            path: /home/iory2k/workspace/iceberg-trino-k8s-demo/scripts
+        - name: spark-data
+          hostPath:
+            path: /home/iory2k/workspace/iceberg-trino-k8s-demo/data
+        - name: spark-logs
+          emptyDir: {}
+        - name: spark-warehouse
+          hostPath:
+            path: /home/iory2k/workspace/iceberg-trino-k8s-demo/warehouse
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-history-server
+  namespace: spark
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-history
+  template:
+    metadata:
+      labels:
+        app: spark-history
+    spec:
+      containers:
+        - name: spark-history
+          image: spark-crack
+          command: ["/bin/bash", "/opt/spark/entrypoint.sh", "history"]
+          imagePullPolicy: IfNotPresent
+          env:
+          - name: SPARK_WORKLOAD
+            value: "history"   
+          - name: SPARK_NO_DAEMONIZE
+            value: "true"
+          ports:
+            - containerPort: 18080
+          volumeMounts:
+            - name: spark-scripts
+              mountPath: /opt/spark/scripts
+            - name: spark-data
+              mountPath: /opt/spark/data
+            - name: spark-logs
+              mountPath: /opt/spark/spark-events
+            - name: spark-warehouse
+              mountPath: /opt/spark/warehouse
+      volumes:
+        - name: spark-scripts
+          hostPath:
+            path: /home/iory2k/workspace/iceberg-trino-k8s-demo/scripts
+        - name: spark-data
+          hostPath:
+            path: /home/iory2k/workspace/iceberg-trino-k8s-demo/data
+        - name: spark-logs
+          emptyDir: {}
+        - name: spark-warehouse
+          hostPath:
+            path: /home/iory2k/workspace/iceberg-trino-k8s-demo/warehouse
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-history-server
+  namespace: spark
+spec:
+  selector:
+    app: spark-history
+  ports:
+    - name: history-ui
+      port: 18080
+      targetPort: 18080
+  type: LoadBalancer

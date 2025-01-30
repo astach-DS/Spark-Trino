@@ -1,0 +1,105 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: postgres-airflow
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-script
+  namespace: postgres-airflow
+data:
+  init.sql: |
+    CREATE USER airflow WITH PASSWORD 'airflowpassword';
+    CREATE DATABASE airflow_db;
+    GRANT ALL PRIVILEGES ON DATABASE airflow_db TO airflow;
+    ALTER DATABASE airflow_db OWNER TO airflow;
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-admin-airflow
+  namespace: postgres-airflow
+data:
+  db: cG9zdGdyZXM= #postgres
+  password: cG9zdGdyZXNzcGFzc3dvcmQxMjM= #postgresspassword123
+  user: cG9zdGdyZXM= #postgres
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc-airflow
+  namespace: postgres-airflow
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 10G
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-airflow
+  namespace: postgres-airflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-airflow
+  template:
+    metadata:
+      labels:
+        app: postgres-airflow
+    spec:
+      containers:
+      - name: postgres-airflow
+        image: postgres
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: postgres-admin-airflow
+              key: db
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-admin-airflow
+              key: user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-admin-airflow
+              key: password
+        volumeMounts:
+        - mountPath: /var/lib/postgres/data
+          name: postgres-data
+        - mountPath: /docker-entrypoint-initdb.d
+          name: init-script
+      volumes:
+      - name: init-script
+        configMap:
+          name: postgres-init-script
+      - name: postgres-data
+        persistentVolumeClaim:
+          claimName: postgres-pvc-airflow
+---
+apiVersion: v1 
+kind: Service 
+metadata: 
+  name: postgres-airflow 
+  namespace: postgres-airflow
+  labels: 
+    app: postgres-airflow 
+spec: 
+  ports: 
+    - port: 5432 
+      targetPort: 5432  # This forwards traffic to the container's port
+  selector: 
+    app: postgres-airflow 

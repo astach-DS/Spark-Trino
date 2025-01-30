@@ -1,0 +1,157 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: airflow
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: airflow-postgres-credentials
+  namespace: airflow
+data:
+  postgres-user: YWlyZmxvdw== # airflow (base64 encoded)
+  postgres-password: YWlyZmxvd3Bhc3N3b3Jk # airflowpassword (base64 encoded)
+  postgres-db: YWlyZmxvdw== # airflow (base64 encoded)
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: airflow-config
+  namespace: airflow
+data:
+  airflow.cfg: |-
+    [core]
+    executor = KubernetesExecutor
+    sql_alchemy_conn = postgresql+psycopg2://airflow:airflowpassword@postgres-airflow.postgres-airflow.svc.cluster.local:5432/airflow_db
+    result_backend = db+postgresql://airflow:airflowpassword@postgres-airflow.postgres-airflow.svc.cluster.local:5432/airflow_db
+    [kubernetes]
+    namespace = airflow
+    worker_container_repository = apache/airflow
+    worker_container_tag = latest
+    delete_worker_pods = True
+    worker_pods_creation_batch_size = 5
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: airflow-db-init
+  namespace: airflow
+spec:
+  template:
+    spec:
+      containers:
+      - name: airflow-db-init
+        image: apache/airflow:latest
+        command: ["airflow", "db", "init"]
+        env:
+        - name: AIRFLOW__CORE__EXECUTOR
+          value: KubernetesExecutor
+        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+          value: postgresql+psycopg2://airflow:airflowpassword@postgres-airflow.postgres-airflow.svc.cluster.local:5432/airflow_db
+        - name: AIRFLOW__CORE__RESULT_BACKEND
+          value: db+postgresql://airflow:airflowpassword@postgres-airflow.postgres-airflow.svc.cluster.local:5432/airflow_db
+      restartPolicy: Never
+  backoffLimit: 4
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-webserver
+  namespace: airflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow-webserver
+  template:
+    metadata:
+      labels:
+        app: airflow-webserver
+    spec:
+      containers:
+      - name: airflow-webserver
+        image: apache/airflow
+        ports:
+        - containerPort: 8080
+        args: ["webserver"]
+        env:
+        - name: AIRFLOW__CORE__EXECUTOR
+          value: KubernetesExecutor
+        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+          value: postgresql+psycopg2://airflow:airflowpassword@postgres-airflow.postgres-airflow.svc.cluster.local:5432/airflow_db
+        - name: AIRFLOW__CORE__RESULT_BACKEND
+          value: db+postgresql://airflow:airflowpassword@postgres-airflow.postgres-airflow.svc.cluster.local:5432/airflow_db
+        - name: AIRFLOW__KUBERNETES__NAMESPACE
+          value: airflow
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - bash
+                - -c
+                - |
+                  airflow users create \
+                    --username admin \
+                    --password admin \
+                    --firstname Admin \
+                    --lastname User \
+                    --role Admin \
+                    --email admin@admin.com
+        volumeMounts:
+        - name: airflow-config-volume
+          mountPath: /opt/airflow/airflow.cfg
+          subPath: airflow.cfg
+      volumes:
+      - name: airflow-config-volume
+        configMap:
+          name: airflow-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-scheduler
+  namespace: airflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: airflow-scheduler
+  template:
+    metadata:
+      labels:
+        app: airflow-scheduler
+    spec:
+      containers:
+      - name: airflow-scheduler
+        image: apache/airflow:latest
+        ports:
+        - containerPort: 8080
+        args: ["scheduler"]
+        env:
+        - name: AIRFLOW__CORE__EXECUTOR
+          value: KubernetesExecutor
+        - name: AIRFLOW__CORE__SQL_ALCHEMY_CONN
+          value: postgresql+psycopg2://airflow:airflowpassword@postgres-airflow.postgres-airflow.svc.cluster.local:5432/airflow_db
+        - name: AIRFLOW__CORE__RESULT_BACKEND
+          value: db+postgresql://airflow:airflowpassword@postgres-airflow.postgres-airflow.svc.cluster.local:5432/airflow_db
+        - name: AIRFLOW__KUBERNETES__NAMESPACE
+          value: airflow
+      volumes:
+      - name: airflow-config-volume
+        configMap:
+          name: airflow-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-web
+  namespace: airflow
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30000
+  selector:
+    app: airflow-webserver
+  type: NodePort
