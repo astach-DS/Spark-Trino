@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kerberos
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-kerberos-kdc-deployment
+  namespace: kerberos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: my-kerberos-kdc-app
+  template:
+    metadata:
+      labels:
+        app: my-kerberos-kdc-app
+    spec:
+      containers:
+      - name: my-kerberos-kdc
+        image: my-kerberos-kdc:latest  # Use the locally built image
+        imagePullPolicy: IfNotPresent # This ensures the local image is used
+        ports:
+        - containerPort: 8000
