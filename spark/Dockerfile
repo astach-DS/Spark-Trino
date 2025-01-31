@@ -61,6 +61,12 @@ FROM pyspark
 
 RUN curl https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-3.5_2.12/1.4.3/iceberg-spark-runtime-3.5_2.12-1.4.3.jar -Lo /opt/spark/jars/iceberg-spark-runtime-3.5_2.12-1.4.3.jar
 RUN curl https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-extensions-3.5_2.12/1.4.3/iceberg-spark-extensions-3.5_2.12-1.4.3.jar  -Lo /opt/spark/jars/iceberg-spark-extensions-3.5_2.12-1.4.3.jar 
+RUN curl https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar -Lo /opt/spark/jars/hadoop-aws-3.3.4.jar
+RUN curl https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.729/aws-java-sdk-bundle-1.12.729.jar -Lo /opt/spark/jars/aws-java-sdk-bundle-1.12.729.jar
+RUN curl https://repo1.maven.org/maven2/software/amazon/awssdk/bundle-sdk/2.23.20/bundle-sdk-2.23.20.jar -Lo /opt/spark/jars/bundle-sdk-2.23.20.jar
+
+
+
 
 COPY entrypoint.sh .
 RUN chmod u+x /opt/spark/entrypoint.sh

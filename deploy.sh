@@ -61,8 +61,4 @@ kubectl create -f $HIVE_YAML
 echo "Deploying Trino..."
 kubectl create -f $TRINO_YAML
 
-# Step 7: Deplot Spark
-echo "Deploying Spark..."
-kubectl create -f $SPARK_YAML
-
 echo "Deployment completed! You can now access the services."

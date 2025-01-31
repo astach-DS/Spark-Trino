@@ -1,4 +1,5 @@
 from pyspark.sql import SparkSession
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 
 my_catalog = 'iceberg'
 # Initialize the Spark session
@@ -14,8 +15,19 @@ spark = SparkSession.builder \
     .config("spark.hadoop.fs.s3a.path.style.access", "true") \
     .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false") \
     .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
-    .getOrCreate()
+    .enableHiveSupport().getOrCreate()
 
-databases = spark.sql(f"SHOW SCHEMAS IN {my_catalog}")
-print("Databases:")
-databases.show()
+# Create a dataframe
+schema = StructType([
+    StructField('name', StringType(), True),
+    StructField('age', IntegerType(), True),
+    StructField('job_title', StringType(), True)
+])
+data = [("person1", 28, "Doctor"), ("person2", 35, "Singer"), ("person3", 42, "Teacher")]
+df = spark.createDataFrame(data, schema=schema)
+
+df.write.format("iceberg").mode("overwrite").saveAsTable(f"{my_catalog}.demo.test")
+
+# databases = spark.sql(f"SHOW SCHEMAS IN {my_catalog}")
+# print("Databases:")
+# databases.show()
