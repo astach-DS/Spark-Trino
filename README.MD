@@ -1,3 +1,6 @@
+This Project is based on PaulMTT iceberg-trino-k8s-demo repository
+
+
 # Iceberg-trino-k8s-demo
 Setting up a local [kubernetes](https://kubernetes.io) cluster on macos,
 and executing distributed sql queries over [iceberg](https://iceberg.apache.org/docs/latest/) + [s3](https://aws.amazon.com/s3/)([minio](https://min.io)) via [trino](https://trino.io).
