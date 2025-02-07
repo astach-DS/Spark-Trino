@@ -13,7 +13,7 @@ metadata:
 data:
   jvm.config: |-
     -server
-    -Xmx2G
+    -Xmx8G
     -XX:-UseBiasedLocking
     -XX:+UseG1GC
     -XX:G1HeapRegionSize=32M
@@ -27,27 +27,28 @@ data:
   config.properties.coordinator: |-
     coordinator=true
     node-scheduler.include-coordinator=false
-    http-server.http.port=8080
-    query.max-memory=1GB
-    query.max-memory-per-node=1GB
-    #query.max-total-memory-per-node=1GB
+    http-server.http.port=8081
+    query.max-memory=6GB
+    query.max-memory-per-node=4GB
+    memory.heap-headroom-per-node=2GB
     query.max-stage-count=200
-    task.writer-count=4
+    task.writer-count=8
     discovery-server.enabled=true
-    discovery.uri=http://trino:8080
+    discovery.uri=http://trino:8081
   config.properties.worker: |-
     coordinator=false
-    http-server.http.port=8080
-    query.max-memory=1GB
-    query.max-memory-per-node=1GB
+    http-server.http.port=8081
+    query.max-memory=5GB
+    query.max-memory-per-node=4GB
+    memory.heap-headroom-per-node=2GB
     query.max-stage-count=200
-    task.writer-count=4
-    discovery.uri=http://trino:8080
+    task.writer-count=8
+    discovery.uri=http://trino:8081
   node.properties: |-
     node.environment=test
     spiller-spill-path=/tmp
-    max-spill-per-node=4TB
-    query-max-spill-per-node=1TB
+    max-spill-per-node=100GB
+    query-max-spill-per-node=50GB
   hive.properties: |-
     connector.name=hive-hadoop2
     hive.metastore.uri=thrift://metastore.hive.svc.cluster.local:9083
@@ -119,7 +120,7 @@ spec:
       - name: trino
         image: trinodb/trino:386
         ports:
-        - containerPort: 8080
+        - containerPort: 8081
         env:
         - name: POSTGRES_DB
           valueFrom:
@@ -167,7 +168,7 @@ spec:
           subPath: postgres.properties
         resources:
           requests:
-            memory: "1G"
+            memory: "4G"
         imagePullPolicy: Always
       volumes:
       - name: trino-cfg-vol
@@ -196,7 +197,7 @@ spec:
       - name: trino
         image: trinodb/trino:386
         ports:
-        - containerPort: 8080
+        - containerPort: 8081
         env:
         - name: POSTGRES_DB
           valueFrom:
@@ -246,7 +247,7 @@ spec:
           mountPath: /tmp
         resources:
           requests:
-            memory: "1G"
+            memory: "4G"
         imagePullPolicy: Always
       volumes:
       - name: trino-cfg-vol
@@ -256,7 +257,6 @@ spec:
   - metadata:
       name: trino-tmp-data
     spec:
-      storageClassName: standard
       accessModes:
       - ReadWriteOnce
       resources:
@@ -271,6 +271,8 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-  - port: 8080
+  - port: 8081
+    targetPort: 8081
+    # nodePort: 30000
   selector:
     app: trino-coordinator

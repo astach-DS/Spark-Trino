@@ -108,7 +108,7 @@ metadata:
 data:
   entrypoint.sh: |-
     #!/bin/bash
-    /opt/apache-hive-metastore-3.1.3-bin/bin/schematool --verbose -initSchema -dbType postgres -userName $POSTGRES_USER -passWord $POSTGRES_PASSWORD -url jdbc:postgresql://postgres.postgres.svc.cluster.local:5432/$POSTGRES_DB
+    /opt/hive/bin/schematool --verbose -upgradeSchema -dbType postgres -userName $POSTGRES_USER -passWord $POSTGRES_PASSWORD -url jdbc:postgresql://postgres.postgres.svc.cluster.local:5432/$POSTGRES_DB
 ---
 apiVersion: batch/v1
 kind: Job
@@ -120,8 +120,9 @@ spec:
     spec:
       containers:
       - name: hivemeta
-        image: alexcpn/hivemetastore:3.13
+        image: hive:4.0.0
         command: ["/bin/entrypoint.sh"]
+        imagePullPolicy: IfNotPresent
         volumeMounts:
           - name: hive-postgres-init-script-volume
             mountPath: /bin/entrypoint.sh
@@ -170,7 +171,8 @@ spec:
     spec:
       containers:
       - name: metastore
-        image: alexcpn/hivemetastore:3.1.3.5
+        image: hive:4.0.0
+        imagePullPolicy: IfNotPresent
         env:
         - name: POSTGRES_DB
           valueFrom:
@@ -201,17 +203,16 @@ spec:
         - containerPort: 9083
         volumeMounts:
         - name: metastore-cfg-vol
-          mountPath: /opt/apache-hive-metastore-3.1.3-bin/conf/metastore-site.xml
+          mountPath: /opt/hive/conf/metastore-site.xml
           subPath: metastore-site.xml
         - name: metastore-cfg-vol
-          mountPath: /opt/hadoop-3.3.0/etc/hadoop/core-site.xml
+          mountPath: /opt/hadoop/etc/hadoop/core-site.xml
           subPath: core-site.xml
-        command: ["/opt/apache-hive-metastore-3.1.3-bin/bin/start-metastore"]
-        args: ["-p", "9083"]
+        command: ["hive"]
+        args: ["--service", "metastore", "-p", "9083"]
         resources:
           requests:
             memory: "1G"
-        imagePullPolicy: Always
       volumes:
       - name: metastore-cfg-vol
         configMap:

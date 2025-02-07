@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-minio-bucket
+  namespace: minio
+spec:
+  template:
+    spec:
+      containers:
+      - name: aws-cli
+        image: amazon/aws-cli:latest
+        command: [ "sh", "-c", "aws --endpoint-url http://minio.minio.svc.cluster.local:9000 s3 mb s3://test" ]
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: minio-admin
+              key: username
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-admin
+              key: password
+      restartPolicy: Never
+  backoffLimit: 1
